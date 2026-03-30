@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Password Security Analyzer</title>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Rajdhani:wght@400;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<style>
+  :root {
+    --bg:#07070f; --panel:#0e0e1c; --card:#13132a; --border:#1e1e3a;
+    --cyan:#00f5ff; --purple:#c000ff; --green:#00ff88; --yellow:#ffd700;
+    --red:#ff2255; --orange:#ff8800; --white:#dde8ff; --muted:#4a4a80;
+    --mono:'Share Tech Mono',monospace; --sans:'Rajdhani',sans-serif;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--bg);color:var(--white);font-family:var(--sans);min-height:100vh;overflow-x:hidden;}
+  body::before{content:'';position:fixed;inset:0;z-index:0;
+    background-image:linear-gradient(rgba(0,245,255,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,245,255,0.03) 1px,transparent 1px);
+    background-size:40px 40px;pointer-events:none;}
+
+  header{position:sticky;top:0;z-index:100;background:var(--panel);border-bottom:1px solid var(--cyan);
+    display:flex;align-items:center;gap:14px;padding:0 28px;height:58px;box-shadow:0 0 30px rgba(0,245,255,0.08);}
+  .logo{font-family:var(--mono);font-size:18px;color:var(--cyan);letter-spacing:2px;}
+  .logo span{color:var(--purple);}
+  .header-title{font-size:15px;color:var(--white);font-weight:600;letter-spacing:1px;}
+  .header-sub{font-family:var(--mono);font-size:10px;color:var(--muted);margin-left:auto;}
+  .status-dot{font-family:var(--mono);font-size:11px;color:var(--green);margin-left:16px;}
+
+  main{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:24px 20px 60px;}
+
+  .tabs{display:flex;gap:2px;margin-bottom:20px;background:var(--panel);border:1px solid var(--border);border-radius:6px;padding:4px;}
+  .tab-btn{flex:1;font-family:var(--mono);font-size:12px;letter-spacing:1px;color:var(--muted);
+    background:transparent;border:none;cursor:pointer;padding:10px 6px;border-radius:4px;transition:all .2s;}
+  .tab-btn:hover{color:var(--white);}
+  .tab-btn.active{background:var(--card);color:var(--cyan);border:1px solid var(--border);}
+  .tab-content{display:none;animation:fadeIn .3s ease;}
+  .tab-content.active{display:block;}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+  .card{background:var(--card);border:1px solid var(--border);border-radius:8px;padding:20px;margin-bottom:16px;}
+  .card-label{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;margin-bottom:8px;}
+
+  .input-row{display:flex;gap:10px;align-items:center;}
+  .pw-input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--cyan);
+    font-family:var(--mono);font-size:15px;padding:12px 16px;border-radius:6px;outline:none;transition:border .2s;}
+  .pw-input:focus{border-color:var(--cyan);box-shadow:0 0 12px rgba(0,245,255,0.1);}
+  .show-cb{font-family:var(--mono);font-size:11px;color:var(--muted);cursor:pointer;display:flex;align-items:center;gap:6px;white-space:nowrap;}
+  .show-cb input{accent-color:var(--cyan);}
+  .btn{font-family:var(--mono);font-size:12px;letter-spacing:1px;padding:12px 22px;border-radius:6px;
+    border:1px solid;cursor:pointer;background:transparent;transition:all .2s;white-space:nowrap;}
+  .btn-cyan{color:var(--cyan);border-color:var(--cyan);}
+  .btn-red{color:var(--red);border-color:var(--red);}
+  .btn-orange{color:var(--orange);border-color:var(--orange);}
+  .btn-purple{color:var(--purple);border-color:var(--purple);}
+  .btn-cyan:hover{background:var(--cyan);color:var(--bg);}
+  .btn-red:hover{background:var(--red);color:var(--bg);}
+  .btn-orange:hover{background:var(--orange);color:var(--bg);}
+  .btn-purple:hover{background:var(--purple);color:var(--bg);}
+
+  .bar-row{display:flex;justify-content:space-between;align-items:center;margin:12px 0 4px;font-family:var(--mono);font-size:11px;}
+  .bar-track{background:var(--border);border-radius:4px;height:6px;overflow:hidden;}
+  .bar-fill{height:100%;border-radius:4px;width:0;transition:width .5s ease,background .5s ease;}
+
+  /* ── ALERT BANNER ── */
+  .alert-banner{
+    display:none; align-items:center; gap:12px;
+    padding:12px 18px; border-radius:8px; margin-bottom:14px;
+    font-family:var(--mono); font-size:12px; border-left:4px solid;
+    animation: slideIn .3s ease;
+  }
+  .alert-banner.show{display:flex;}
+  @keyframes slideIn{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+  .alert-banner.error  {background:rgba(255,34,85,0.1); border-color:var(--red);   color:var(--red);}
+  .alert-banner.warning{background:rgba(255,215,0,0.1); border-color:var(--yellow);color:var(--yellow);}
+  .alert-banner.success{background:rgba(0,255,136,0.1); border-color:var(--green); color:var(--green);}
+  .alert-banner.ok     {background:rgba(0,245,255,0.1); border-color:var(--cyan);  color:var(--cyan);}
+  .alert-icon{font-size:18px;}
+  .alert-text{flex:1;}
+  .alert-title{font-weight:700;font-size:13px;}
+  .alert-msg{font-size:11px;margin-top:3px;opacity:.85;}
+
+  /* ── ENTROPY THRESHOLD BAR ── */
+  .entropy-bar{display:flex;gap:2px;margin-bottom:6px;border-radius:6px;overflow:hidden;}
+  .e-zone{flex:1;padding:8px 4px;text-align:center;font-family:var(--mono);font-size:9px;font-weight:700;color:var(--bg);cursor:default;transition:opacity .3s;}
+  .e-zone.inactive{opacity:.35;}
+  .e-zone.active{opacity:1;box-shadow:0 0 10px rgba(255,255,255,0.3);}
+  .entropy-reading{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:10px;}
+
+  .log-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:16px;
+    font-family:var(--mono);font-size:12px;line-height:1.9;min-height:200px;
+    white-space:pre-wrap;overflow-y:auto;max-height:320px;}
+  .ok{color:var(--green);} .warn{color:var(--yellow);} .err{color:var(--red);}
+  .info{color:var(--cyan);} .muted{color:var(--muted);}
+
+  .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:14px;}
+  .stat-box{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:14px;text-align:center;}
+  .stat-label{font-family:var(--mono);font-size:9px;color:var(--muted);letter-spacing:1px;}
+  .stat-val{font-family:var(--mono);font-size:18px;color:var(--cyan);margin-top:4px;font-weight:600;}
+
+  .section-lbl{font-family:var(--mono);font-size:10px;color:var(--muted);letter-spacing:2px;
+    border-bottom:1px solid var(--border);padding-bottom:8px;margin-bottom:12px;}
+
+  .charts-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .chart-card{background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:20px;}
+  .chart-title{font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:14px;letter-spacing:1px;}
+
+  footer{text-align:center;font-family:var(--mono);font-size:10px;color:var(--muted);padding:20px;position:relative;z-index:1;}
+
+  @media(max-width:600px){
+    .charts-grid{grid-template-columns:1fr;}
+    .tab-btn{font-size:10px;padding:8px 2px;}
+    .input-row{flex-wrap:wrap;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">[<span>PSA</span>]</div>
+  <div class="header-title">PASSWORD SECURITY ANALYZER</div>
+  <div class="header-sub">v3.0 | CYBER SECURITY SIMULATION TOOL</div>
+  <div class="status-dot" id="statusDot">● READY</div>
+</header>
+
+<main>
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('strength',this)">🔎 STRENGTH</button>
+    <button class="tab-btn" onclick="switchTab('brute',this)">💥 BRUTE FORCE</button>
+    <button class="tab-btn" onclick="switchTab('dict',this)">📖 DICTIONARY</button>
+    <button class="tab-btn" onclick="switchTab('report',this)">📊 REPORT</button>
+  </div>
+
+  <!-- ══ STRENGTH TAB ══ -->
+  <div class="tab-content active" id="tab-strength">
+    <div class="card">
+      <div class="card-label">ENTER PASSWORD</div>
+      <div class="input-row">
+        <input class="pw-input" id="sInput" type="password" placeholder="type your password here..." oninput="liveStrength()"/>
+        <label class="show-cb"><input type="checkbox" onchange="document.getElementById('sInput').type=this.checked?'text':'password'"/> SHOW</label>
+        <button class="btn btn-cyan" onclick="runStrength()">ANALYZE ▶</button>
+      </div>
+      <div class="bar-row">
+        <span style="font-family:var(--mono);font-size:10px;color:var(--muted)">STRENGTH:</span>
+        <span id="strengthLbl" style="font-family:var(--mono);font-size:11px;font-weight:700;color:var(--muted)">—</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" id="strengthBar"></div></div>
+    </div>
+
+    <!-- Alert Banner -->
+    <div class="alert-banner" id="alertBanner">
+      <div class="alert-icon" id="alertIcon">⚠</div>
+      <div class="alert-text">
+        <div class="alert-title" id="alertTitle"></div>
+        <div class="alert-msg" id="alertMsg"></div>
+      </div>
+    </div>
+
+    <!-- Entropy Threshold Bar -->
+    <div class="card">
+      <div class="card-label">ENTROPY THRESHOLD INDICATOR</div>
+      <div class="entropy-bar">
+        <div class="e-zone inactive" id="ez0" style="background:var(--red)">CRITICALLY<br>WEAK<br>&lt;28</div>
+        <div class="e-zone inactive" id="ez1" style="background:#ff6633">WEAK<br>28-49</div>
+        <div class="e-zone inactive" id="ez2" style="background:var(--yellow)">MODERATE<br>50-59</div>
+        <div class="e-zone inactive" id="ez3" style="background:var(--cyan)">STRONG<br>60-79</div>
+        <div class="e-zone inactive" id="ez4" style="background:var(--green)">VERY<br>STRONG<br>80+</div>
+      </div>
+      <div class="entropy-reading" id="entropyReading">Entropy: — bits &nbsp;|&nbsp; Threshold: —</div>
+    </div>
+
+    <div class="section-lbl">ANALYSIS REPORT</div>
+    <div class="log-box" id="sLog"><span class="muted">  Enter a password above and click ANALYZE...
+
+  Entropy Thresholds:
+    &lt; 28 bits  →  <span class="err">CRITICALLY WEAK — ERROR</span>
+    28-49 bits →  <span class="err">WEAK — ERROR</span>
+    50-59 bits →  <span class="warn">MODERATE — WARNING</span>
+    60-79 bits →  <span class="info">STRONG — OK</span>
+    80+ bits   →  <span class="ok">VERY STRONG — SUCCESS</span>
+</span></div>
+  </div>
+
+  <!-- ══ BRUTE FORCE TAB ══ -->
+  <div class="tab-content" id="tab-brute">
+    <div class="card">
+      <div class="card-label">TARGET PASSWORD (max 5 chars — lowercase + digits only)</div>
+      <div class="input-row">
+        <input class="pw-input" id="bInput" type="text" placeholder="e.g. ab3 or xyz1"/>
+        <button class="btn btn-red" onclick="runBrute()">LAUNCH ATTACK ▶</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="stat-label">ATTEMPTS</div><div class="stat-val" id="bAttempts">—</div></div>
+      <div class="stat-box"><div class="stat-label">TIME (s)</div><div class="stat-val" id="bTime">—</div></div>
+      <div class="stat-box"><div class="stat-label">STATUS</div><div class="stat-val" id="bStatus" style="color:var(--muted)">IDLE</div></div>
+    </div>
+    <div class="section-lbl">ATTACK LOG</div>
+    <div class="log-box" id="bLog"><span class="muted">  Waiting for attack to start...</span></div>
+  </div>
+
+  <!-- ══ DICTIONARY TAB ══ -->
+  <div class="tab-content" id="tab-dict">
+    <div class="card">
+      <div class="card-label">TARGET PASSWORD (must match a word in the built-in wordlist)</div>
+      <div class="input-row">
+        <input class="pw-input" id="dInput" type="text" placeholder="e.g. admin or dragon"/>
+        <button class="btn btn-orange" onclick="runDict()">LAUNCH ATTACK ▶</button>
+      </div>
+    </div>
+    <div class="stats">
+      <div class="stat-box"><div class="stat-label">ATTEMPTS</div><div class="stat-val" id="dAttempts">—</div></div>
+      <div class="stat-box"><div class="stat-label">TIME (ms)</div><div class="stat-val" id="dTime">—</div></div>
+      <div class="stat-box"><div class="stat-label">STATUS</div><div class="stat-val" id="dStatus" style="color:var(--muted)">IDLE</div></div>
+    </div>
+    <div class="section-lbl">ATTACK LOG</div>
+    <div class="log-box" id="dLog"><span class="muted">  Waiting for dictionary attack to start...</span></div>
+  </div>
+
+  <!-- ══ REPORT TAB ══ -->
+  <div class="tab-content" id="tab-report">
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+      <span style="font-family:var(--mono);font-size:11px;color:var(--muted)">Run Strength Analyzer first, then generate your visual report.</span>
+      <button class="btn btn-purple" onclick="genReport()">GENERATE REPORT ▶</button>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card"><div class="chart-title">CRITERIA BREAKDOWN</div><canvas id="barChart"></canvas></div>
+      <div class="chart-card"><div class="chart-title">ENTROPY + THRESHOLD</div><canvas id="donutChart"></canvas></div>
+    </div>
+  </div>
+</main>
+
+<footer>PASSWORD SECURITY ANALYZER &nbsp;|&nbsp; CNS LAB MINI PROJECT &nbsp;|&nbsp; SIMULATION TOOL</footer>
+
+<script>
+// ══ WORDLIST ══
+const WORDLIST=["123456","password","admin","letmein","welcome","monkey","dragon","master","abc123",
+"qwerty","iloveyou","sunshine","princess","football","shadow","superman","michael","jessica",
+"password1","hello","charlie","donald","aa123456","passw0rd","login","test","1234","12345",
+"123456789","1234567890","password123","pass","root","toor","guest","user","alpine","changeme",
+"default","secret","temp","admin123","administrator","root123","pass123","letmein123","welcome1",
+"qwerty123","abc","baseball","batman","trustno1","whatever","freedom","starwars","cheese","butter",
+"123","111111","000000","696969","123123","1q2w3e","passpass","testtest","superman1","michael1"];
+
+// ══ ENTROPY THRESHOLDS ══
+const THRESHOLDS=[
+  {min:0,  max:28,  label:"CRITICALLY WEAK", cls:"error",   icon:"✘", status:"ERROR",
+   title:"✘ ERROR — Critically Weak Password!",
+   msg:"Entropy is dangerously low. This password can be cracked in milliseconds. Change immediately!",
+   color:"#ff2255", zone:0},
+  {min:28, max:50,  label:"WEAK",            cls:"error",   icon:"✘", status:"ERROR",
+   title:"✘ ERROR — Weak Password!",
+   msg:"Entropy is too low. Easily crackable by brute force. Add more characters, digits and symbols.",
+   color:"#ff6633", zone:1},
+  {min:50, max:60,  label:"MODERATE",        cls:"warning", icon:"⚠", status:"WARNING",
+   title:"⚠ WARNING — Moderate Password",
+   msg:"Entropy is borderline. May be cracked with time. Add uppercase letters or special characters.",
+   color:"#ffd700", zone:2},
+  {min:60, max:80,  label:"STRONG",          cls:"ok",      icon:"✔", status:"OK",
+   title:"✔ OK — Strong Password",
+   msg:"Entropy is acceptable. Reasonably secure for general use. Consider adding more characters.",
+   color:"#00f5ff", zone:3},
+  {min:80, max:999, label:"VERY STRONG",     cls:"success", icon:"✔", status:"SUCCESS",
+   title:"✔ SUCCESS — Very Strong Password!",
+   msg:"Excellent entropy! Highly resistant to all attack types. This is a secure password.",
+   color:"#00ff88", zone:4},
+];
+
+function getThreshold(entropy){
+  return THRESHOLDS.find(t => entropy >= t.min && entropy < t.max) || THRESHOLDS[4];
+}
+
+// ══ TABS ══
+function switchTab(id,btn){
+  document.querySelectorAll('.tab-content').forEach(t=>t.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-'+id).classList.add('active');
+  btn.classList.add('active');
+}
+
+// ══ ALERT BANNER ══
+function showAlert(th){
+  const b=document.getElementById('alertBanner');
+  b.className='alert-banner show '+th.cls;
+  document.getElementById('alertIcon').textContent=th.icon;
+  document.getElementById('alertTitle').textContent=th.title;
+  document.getElementById('alertMsg').textContent=th.msg;
+}
+function hideAlert(){
+  document.getElementById('alertBanner').className='alert-banner';
+}
+
+// ══ ENTROPY ZONES ══
+function highlightZone(zoneIdx){
+  for(let i=0;i<5;i++){
+    const el=document.getElementById('ez'+i);
+    el.className='e-zone '+(i===zoneIdx?'active':'inactive');
+  }
+}
+function clearZones(){
+  for(let i=0;i<5;i++) document.getElementById('ez'+i).className='e-zone inactive';
+}
+
+// ══ STRENGTH ANALYSIS ══
+let lastResult=null;
+
+function analyzeStrength(pw){
+  const len=pw.length;
+  const hasLower=/[a-z]/.test(pw), hasUpper=/[A-Z]/.test(pw);
+  const hasDigit=/[0-9]/.test(pw), hasSymbol=/[^a-zA-Z0-9]/.test(pw);
+  let score=0; const feedback=[];
+
+  if(len>=16){score+=3;feedback.push(['✔','Excellent length (16+ chars)','ok']);}
+  else if(len>=12){score+=2;feedback.push(['✔','Good length (12+ chars)','ok']);}
+  else if(len>=8){score+=1;feedback.push(['~','Minimum length met (8+ chars)','warn']);}
+  else{feedback.push(['✘','Too short — use 8+ characters','err']);}
+
+  if(hasLower){score+=1;feedback.push(['✔','Lowercase letters present','ok']);}
+  else{feedback.push(['✘','Add lowercase letters','err']);}
+  if(hasUpper){score+=1;feedback.push(['✔','Uppercase letters present','ok']);}
+  else{feedback.push(['✘','Add uppercase letters','err']);}
+  if(hasDigit){score+=1;feedback.push(['✔','Digits present','ok']);}
+  else{feedback.push(['✘','Add numbers (0-9)','err']);}
+  if(hasSymbol){score+=2;feedback.push(['✔','Special characters present','ok']);}
+  else{feedback.push(['✘','Add symbols (!@#$%...)','err']);}
+
+  const charset=(hasLower?26:0)+(hasUpper?26:0)+(hasDigit?10:0)+(hasSymbol?32:0)||1;
+  const entropy=+(len*Math.log2(charset)).toFixed(2);
+  const th=getThreshold(entropy);
+
+  let strength,color;
+  if(score>=7){strength='VERY STRONG';color='#00ff88';}
+  else if(score>=5){strength='STRONG';color='#00f5ff';}
+  else if(score>=3){strength='MODERATE';color='#ffd700';}
+  else{strength='WEAK';color='#ff2255';}
+
+  return{score,maxScore:8,strength,color,entropy,length:len,
+         feedback,hasLower,hasUpper,hasDigit,hasSymbol,th};
+}
+
+function liveStrength(){
+  const pw=document.getElementById('sInput').value;
+  if(!pw){
+    document.getElementById('strengthBar').style.width='0';
+    document.getElementById('strengthLbl').textContent='—';
+    document.getElementById('strengthLbl').style.color='var(--muted)';
+    document.getElementById('entropyReading').textContent='Entropy: — bits | Threshold: —';
+    document.getElementById('entropyReading').style.color='var(--muted)';
+    hideAlert(); clearZones(); return;
+  }
+  const r=analyzeStrength(pw);
+  const pct=(r.score/r.maxScore*100).toFixed(1);
+  document.getElementById('strengthBar').style.width=pct+'%';
+  document.getElementById('strengthBar').style.background=r.color;
+  document.getElementById('strengthLbl').textContent=r.strength;
+  document.getElementById('strengthLbl').style.color=r.color;
+  document.getElementById('entropyReading').textContent=
+    `Entropy: ${r.entropy} bits  |  Threshold: ${r.th.label}  |  Status: ${r.th.status}`;
+  document.getElementById('entropyReading').style.color=r.th.color;
+  highlightZone(r.th.zone);
+  showAlert(r.th);
+}
+
+function runStrength(){
+  const pw=document.getElementById('sInput').value;
+
+  // ── EMPTY CHECK ──
+  if(!pw||!pw.trim()){
+    document.getElementById('sLog').innerHTML=
+      '<span class="err">  ✘ ERROR: Password field is empty!\n  Please enter a password to analyze.\n  Action: Type a password in the input field above.</span>';
+    showAlert({cls:'error',icon:'✘',title:'✘ ERROR — Empty Input!',msg:'Password field cannot be empty. Please enter a password.'});
+    hideAlert();
+    const b=document.getElementById('alertBanner');
+    b.className='alert-banner show error';
+    document.getElementById('alertIcon').textContent='✘';
+    document.getElementById('alertTitle').textContent='✘ ERROR — Empty Input!';
+    document.getElementById('alertMsg').textContent='Password field cannot be empty. Please type a password.';
+    return;
+  }
+
+  const r=analyzeStrength(pw);
+  lastResult=r;
+
+  let html='';
+  html+=`<span class="info">\n  PASSWORD STRENGTH ANALYSIS REPORT\n  ${'─'.repeat(44)}\n</span>`;
+  html+=`  Password  :  ${'*'.repeat(pw.length)}\n`;
+  html+=`  Length    :  ${r.length} characters\n`;
+  html+=`  Score     :  ${r.score} / ${r.maxScore}\n`;
+  const st=r.score>=7?'ok':r.score>=3?'warn':'err';
+  html+=`  Strength  :  <span class="${st}">${r.strength}</span>\n`;
+
+  // ── ENTROPY SECTION ──
+  html+=`<span class="muted">  ${'─'.repeat(44)}\n  ENTROPY ANALYSIS:\n</span>`;
+  html+=`  Entropy   :  ${r.entropy} bits\n`;
+  html+=`  Threshold :  <span class="${r.th.cls==='error'?'err':r.th.cls==='warning'?'warn':r.th.cls==='success'?'ok':'info'}">${r.th.label}</span>\n`;
+  html+=`  Status    :  <span class="${r.th.cls==='error'?'err':r.th.cls==='warning'?'warn':r.th.cls==='success'?'ok':'info'}">${r.th.status}</span>\n`;
+
+  // ── STATUS MESSAGE ──
+  html+=`<span class="muted">  ${'─'.repeat(44)}\n</span>`;
+  const etag=r.th.cls==='error'?'err':r.th.cls==='warning'?'warn':r.th.cls==='success'?'ok':'info';
+  html+=`  <span class="${etag}">${r.th.title}</span>\n`;
+  html+=`  <span class="${etag}">${r.th.msg}</span>\n`;
+
+  html+=`<span class="muted">  ${'─'.repeat(44)}\n  FEEDBACK:\n</span>`;
+  r.feedback.forEach(([icon,msg,tag])=>{
+    html+=`  <span class="${tag}">${icon}  ${msg}</span>\n`;
+  });
+
+  document.getElementById('sLog').innerHTML=html;
+  liveStrength();
+}
+
+// ══ BRUTE FORCE ══
+const BF_CHARS='abcdefghijklmnopqrstuvwxyz0123456789';
+function* bruteGen(maxLen){
+  for(let len=1;len<=maxLen;len++){
+    const indices=new Array(len).fill(0);
+    while(true){
+      yield indices.map(i=>BF_CHARS[i]).join('');
+      let pos=len-1;
+      while(pos>=0){indices[pos]++;if(indices[pos]<BF_CHARS.length)break;indices[pos]=0;pos--;}
+      if(pos<0)break;
+    }
+  }
+}
+
+function runBrute(){
+  const target=document.getElementById('bInput').value.trim();
+  if(!target){
+    document.getElementById('bLog').innerHTML='<span class="err">  ✘ ERROR: Target password field is empty!\n  Please enter a password to attack.</span>';
+    document.getElementById('bStatus').textContent='ERROR';
+    document.getElementById('bStatus').style.color='var(--red)';
+    return;
+  }
+  if(target.length>5){
+    document.getElementById('bLog').innerHTML='<span class="err">  ✘ ERROR: Password too long!\n  Maximum 5 characters allowed for demo.\n  Please enter a shorter password.</span>';
+    return;
+  }
+  for(const ch of target){
+    if(!BF_CHARS.includes(ch)){
+      document.getElementById('bLog').innerHTML='<span class="err">  ✘ ERROR: Invalid characters detected!\n  Use only lowercase letters (a-z) and digits (0-9).</span>';
+      return;
+    }
+  }
+
+  document.getElementById('bLog').innerHTML='<span class="warn">  ⚠ WARNING: Brute force attack in progress...\n  Do not close this tab!</span>';
+  document.getElementById('bStatus').textContent='RUNNING';
+  document.getElementById('bStatus').style.color='var(--yellow)';
+  document.getElementById('statusDot').textContent='● RUNNING';
+  document.getElementById('statusDot').style.color='var(--yellow)';
+
+  const gen=bruteGen(5);
+  let attempts=0; const t0=performance.now(); let logLines=[];
+
+  function chunk(){
+    for(let i=0;i<15000;i++){
+      const{value:guess,done}=gen.next();
+      if(done){finish(false,attempts,performance.now()-t0);return;}
+      attempts++;
+      if(attempts%50000===0){
+        logLines.push(`<span class="muted">  trying › ${guess.padEnd(8)}  attempts: ${attempts.toLocaleString()}</span>`);
+        if(logLines.length>30)logLines.shift();
+        document.getElementById('bLog').innerHTML=logLines.join('\n');
+        document.getElementById('bAttempts').textContent=attempts.toLocaleString();
+      }
+      if(guess===target){finish(true,attempts,performance.now()-t0,guess);return;}
+    }
+    setTimeout(chunk,0);
+  }
+
+  function finish(found,attempts,ms,pw=''){
+    const sec=(ms/1000).toFixed(4);
+    document.getElementById('bAttempts').textContent=attempts.toLocaleString();
+    document.getElementById('bTime').textContent=sec;
+    document.getElementById('statusDot').textContent='● READY';
+    document.getElementById('statusDot').style.color='var(--green)';
+    if(found){
+      document.getElementById('bStatus').textContent='CRACKED!';
+      document.getElementById('bStatus').style.color='var(--red)';
+      document.getElementById('bLog').innerHTML=
+        `<span class="err">  ✘ ERROR: PASSWORD CRACKED!\n  Password : ${pw}\n  Attempts : ${attempts.toLocaleString()}\n  Time     : ${sec} s\n\n  ⚠ WARNING: This password is dangerously weak!\n  Action   : Change this password immediately!</span>`;
+    }else{
+      document.getElementById('bStatus').textContent='SAFE';
+      document.getElementById('bStatus').style.color='var(--green)';
+      document.getElementById('bLog').innerHTML+=
+        `\n<span class="ok">  ✔ SUCCESS: Password not found in brute-force range.\n  This password is safe from basic brute force attacks.</span>`;
+    }
+  }
+  chunk();
+}
+
+// ══ DICTIONARY ATTACK ══
+function runDict(){
+  const target=document.getElementById('dInput').value.trim();
+  if(!target){
+    document.getElementById('dLog').innerHTML='<span class="err">  ✘ ERROR: Target password field is empty!\n  Please enter a password to test.</span>';
+    document.getElementById('dStatus').textContent='ERROR';
+    document.getElementById('dStatus').style.color='var(--red)';
+    return;
+  }
+
+  document.getElementById('dLog').innerHTML='<span class="warn">  ⚠ WARNING: Dictionary attack in progress...</span>';
+  document.getElementById('dStatus').textContent='RUNNING';
+  document.getElementById('dStatus').style.color='var(--yellow)';
+  document.getElementById('statusDot').textContent='● RUNNING';
+  document.getElementById('statusDot').style.color='var(--yellow)';
+
+  const t0=performance.now(); let attempts=0; let logLines=[];
+
+  for(const word of WORDLIST){
+    attempts++;
+    logLines.push(`<span class="muted">  trying › ${word}</span>`);
+    if(logLines.length>40)logLines.shift();
+    if(word===target){
+      const ms=(performance.now()-t0).toFixed(2);
+      document.getElementById('dAttempts').textContent=attempts;
+      document.getElementById('dTime').textContent=ms;
+      document.getElementById('dStatus').textContent='CRACKED!';
+      document.getElementById('dStatus').style.color='var(--red)';
+      document.getElementById('statusDot').textContent='● READY';
+      document.getElementById('statusDot').style.color='var(--green)';
+      document.getElementById('dLog').innerHTML=logLines.join('\n')+
+        `\n<span class="err">  ✘ ERROR: PASSWORD FOUND IN DICTIONARY!\n  Password : ${word}\n  Attempts : ${attempts}\n  Time     : ${ms} ms\n\n  ⚠ WARNING: This is a common password!\n  Action   : Never use dictionary words as passwords!</span>`;
+      return;
+    }
+  }
+
+  const ms=(performance.now()-t0).toFixed(2);
+  document.getElementById('dAttempts').textContent=attempts;
+  document.getElementById('dTime').textContent=ms;
+  document.getElementById('dStatus').textContent='SAFE';
+  document.getElementById('dStatus').style.color='var(--green)';
+  document.getElementById('statusDot').textContent='● READY';
+  document.getElementById('statusDot').style.color='var(--green)';
+  document.getElementById('dLog').innerHTML=logLines.join('\n')+
+    `\n<span class="ok">  ✔ SUCCESS: Password NOT found in dictionary!\n  This password is safe from dictionary attacks.</span>`;
+}
+
+// ══ VISUAL REPORT ══
+let barInst=null,donutInst=null;
+function genReport(){
+  if(!lastResult){alert('Please analyze a password in the Strength tab first!');return;}
+  const r=lastResult;
+  if(barInst)barInst.destroy();
+  if(donutInst)donutInst.destroy();
+
+  barInst=new Chart(document.getElementById('barChart'),{
+    type:'bar',
+    data:{
+      labels:['Length','Lowercase','Uppercase','Digits','Symbols'],
+      datasets:[{
+        data:[Math.min(r.length/16,1)*3,r.hasLower?1:0,r.hasUpper?1:0,r.hasDigit?1:0,r.hasSymbol?2:0],
+        backgroundColor:['#00f5ff','#00ff88','#ffd700','#ff8800','#c000ff'],
+        borderRadius:4,
+      }]
+    },
+    options:{indexAxis:'y',plugins:{legend:{display:false}},
+      scales:{x:{max:3,ticks:{color:'#4a4a80'},grid:{color:'#1e1e3a'}},
+              y:{ticks:{color:'#dde8ff'},grid:{color:'#1e1e3a'}}}}
+  });
+
+  donutInst=new Chart(document.getElementById('donutChart'),{
+    type:'doughnut',
+    data:{
+      labels:[`${r.th.status}: ${r.entropy} bits`,'Remaining to 128 bits'],
+      datasets:[{data:[r.entropy,Math.max(128-r.entropy,0)],
+        backgroundColor:[r.th.color,'#1e1e3a'],borderWidth:0,hoverOffset:4}]
+    },
+    options:{cutout:'68%',plugins:{legend:{labels:{color:'#dde8ff',font:{size:11}}}}}
+  });
+}
+</script>
+</body>
+</html>
